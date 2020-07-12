@@ -1,0 +1,300 @@
+{
+	"name": "pipeline1",
+	"properties": {
+		"activities": [
+			{
+				"name": "Pull_Master Table Data",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"queryTimeout": "02:00:00"
+					},
+					"dataset": {
+						"referenceName": "AzureSqlTable1",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "Pull Configuration Table",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Pull_Master Table Data",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderStoredProcedureName": "[dbo].[USP_PullConfiguration]",
+						"storedProcedureParameters": {
+							"Table": {
+								"type": "String",
+								"value": {
+									"value": "@activity('Pull_Master Table Data').output.firstRow.TableName",
+									"type": "Expression"
+								}
+							}
+						},
+						"queryTimeout": "02:00:00"
+					},
+					"dataset": {
+						"referenceName": "AzureSqlTable1",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "LookupSourceTblLastModifiedDate",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Pull Configuration Table",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderStoredProcedureName": "[dbo].[USP_PullDataBasedOnModifiedDate]",
+						"storedProcedureParameters": {
+							"ColumnName": {
+								"type": "String",
+								"value": {
+									"value": "@activity('Pull Configuration Table').output.firstRow.Configure_Value\n\n",
+									"type": "Expression"
+								}
+							},
+							"Table": {
+								"type": "String",
+								"value": {
+									"value": "@activity('Pull_Master Table Data').output.firstRow.TableName",
+									"type": "Expression"
+								}
+							}
+						},
+						"queryTimeout": "02:00:00"
+					},
+					"dataset": {
+						"referenceName": "AzureSqlTable1",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "CopyLightDBtoADLS",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "LookupSourceTblLastModifiedDate",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderStoredProcedureName": "[dbo].[USP_PullSourceTableData]",
+						"storedProcedureParameters": {
+							"ColumnName": {
+								"type": "String",
+								"value": {
+									"value": "@activity('Pull Configuration Table').output.firstRow.Configure_Value",
+									"type": "Expression"
+								}
+							},
+							"LastMaxDate": {
+								"type": "String",
+								"value": {
+									"value": "@activity('Pull_Master Table Data').output.firstRow.Last_Max_Date\n",
+									"type": "Expression"
+								}
+							},
+							"Table": {
+								"type": "String",
+								"value": {
+									"value": "@activity('Pull_Master Table Data').output.firstRow.TableName\n",
+									"type": "Expression"
+								}
+							}
+						},
+						"queryTimeout": "02:00:00"
+					},
+					"sink": {
+						"type": "DelimitedTextSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "DelimitedTextWriteSettings",
+							"quoteAllText": true,
+							"fileExtension": ".txt"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"mappings": [
+							{
+								"source": {
+									"name": "Movie",
+									"type": "Int64",
+									"physicalType": "bigint"
+								},
+								"sink": {
+									"name": "Movie"
+								}
+							},
+							{
+								"source": {
+									"name": "Title",
+									"type": "String",
+									"physicalType": "varchar"
+								},
+								"sink": {
+									"name": "Title"
+								}
+							},
+							{
+								"source": {
+									"name": "Year",
+									"type": "Int32",
+									"physicalType": "int"
+								},
+								"sink": {
+									"name": "Year"
+								}
+							},
+							{
+								"source": {
+									"name": "Rating",
+									"type": "Int32"
+								},
+								"sink": {
+									"name": "Rating"
+								}
+							},
+							{
+								"source": {
+									"name": "Modified_Date",
+									"type": "DateTime"
+								},
+								"sink": {
+									"name": "Modified_Date"
+								}
+							}
+						],
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "AzureSqlTable1",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "DelimitedText1",
+						"type": "DatasetReference",
+						"parameters": {
+							"FileName": {
+								"value": "@CONCAT('Source_Tbl-',utcnow(), '.txt')",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			},
+			{
+				"name": "UpdatePullMaster",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "CopyLightDBtoADLS",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[USP_Update_Pull_Master]",
+					"storedProcedureParameters": {
+						"Last_max_date": {
+							"value": {
+								"value": "@activity('LookupSourceTblLastModifiedDate').output.firstRow.Modified_Date",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"Table_Name": {
+							"value": {
+								"value": "@activity('Pull_Master Table Data').output.firstRow.TableName",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "AzureSqlDatabase1",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"annotations": []
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

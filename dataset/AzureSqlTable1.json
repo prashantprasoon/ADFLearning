@@ -1,0 +1,43 @@
+{
+	"name": "AzureSqlTable1",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureSqlDatabase1",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "Movie",
+				"type": "bigint",
+				"precision": 19
+			},
+			{
+				"name": "Title",
+				"type": "varchar"
+			},
+			{
+				"name": "Year",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "Rating",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "Modified_Date",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "Pull_Master"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}
